@@ -1,14 +1,20 @@
+#![no_std]
 #![doc = include_str!("../README.md")]
 
 mod buf;
 mod item;
-mod iter;
 mod rate;
 
-pub use buf::{RawReservoir, SamplingOutcome, SamplingReservoir, ReservoirOrderedIter};
+#[cfg(doc)]
+pub mod math;
+
+pub use buf::{SamplingOutcome, SamplingReservoir, ReservoirOrderedIter};
 pub use item::{InitializedItem, Item};
-pub use iter::{InfinitySamplerIndexer, ReverseInfinitySamplerIndexer};
 pub use rate::SamplingRate;
+
+#[cfg(test)]
+#[macro_use]
+extern crate std;
 
 #[cfg(test)]
 mod tests;

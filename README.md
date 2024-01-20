@@ -1,10 +1,10 @@
 # Infinity Sampler
 
-✨ Allocation free ✨ Minimal dependencies ✨ `no_std` compatible ✨
+✨ Allocation free ✨ No dependencies ✨ `no_std` compatible ✨
 
 The Infinity Sampler lets you automatically sample an infinite stream of values into a fixed size buffer, while keeping an even spread of samples.
 
-It's a deterministic variation of the [Reservoir Sampling](https://en.wikipedia.org/wiki/Reservoir_sampling) algorithm. Writes are *O(1)*, iteration is *O(N\*log(N))*. See [InfinitySamplerIndexer] for an illustrated explainer.
+It's a deterministic variation of the [Reservoir Sampling](https://en.wikipedia.org/wiki/Reservoir_sampling) algorithm. Writes are *O(1)*, iteration is *O(N\*log(N))*. See [math] for an illustrated explainer.
 
 Your primary interface is the [SamplingReservoir] struct:
 

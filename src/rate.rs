@@ -1,3 +1,5 @@
+use core::hint::unreachable_unchecked;
+
 /// A simple sampler.
 ///
 /// ```
@@ -27,6 +29,7 @@ pub struct SamplingRate {
 
 impl SamplingRate {
     pub const fn new(divisor: u32) -> Self {
+        assert!(divisor > 0);
         Self {
             divisor,
             counter: 0,
@@ -35,6 +38,9 @@ impl SamplingRate {
 
     /// Returns true if the sampler should sample.
     pub fn step(&mut self) -> bool {
+        if self.divisor == 0 {
+            unsafe { unreachable_unchecked() };
+        }
         self.counter += 1;
         self.counter %= self.divisor;
         self.counter == 0
@@ -42,6 +48,11 @@ impl SamplingRate {
 
     /// Reduce the sampling rate by a ratio.
     pub fn div(&mut self, ratio: u32) {
+        assert!(ratio > 0);
         self.divisor *= ratio;
+    }
+
+    pub fn divisor(&self) -> u32 {
+        self.divisor
     }
 }
