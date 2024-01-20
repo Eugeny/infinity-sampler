@@ -10,7 +10,7 @@
 /// This works together with the dynamic sampling rate implemented by [SamplingReservoir](crate::SamplingReservoir):
 ///
 /// * The sampling rate is halved every time `N/2` (a _pattern_) values have been positively sampled.
-/// * At all times, if the reservoir has consumed `M` values, the buffer will contain an even spread of samples, with the distance between samples being exactly either `floor(log2(M))`` or `ceil(log2(M))`.
+/// * At all times, if the reservoir has consumed `M` values, the buffer will contain an even spread of samples, with the distance between samples being exactly either `floor(log2(M))` or `ceil(log2(M))`.
 /// * Each time exactly `N*(2^M)` values consumed by the Reservoir (i.e. `N + M * N/2` values have been positively sampled), the buffer will contain perfectly evenly spead values with indexes `i*(2^M)`.
 ///
 /// ## Example for N=16

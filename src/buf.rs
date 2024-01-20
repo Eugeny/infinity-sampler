@@ -19,6 +19,7 @@ pub struct RawReservoir<T, const N: usize> {
 
 pub enum SamplingOutcome<T> {
     Consumed,
+    ConsumedAndRateReduced { factor: u32 },
     Discarded(T),
 }
 
@@ -300,14 +301,15 @@ impl<T, const N: usize> SamplingReservoir<T, N> {
     /// Performs a sampling "step", consuming the value and storing it into the buffer,
     /// or returning it back if it's discarded due to the sampling rate.
     pub fn sample(&mut self, value: T) -> SamplingOutcome<T> {
-        if self.sample_rate.step() {
-            if self.inner.iter.position() >= N && (self.inner.iter.position() - N) % (N / 2) == 0 {
-                self.sample_rate.div(2);
-            }
-            self.inner.write(value);
-            SamplingOutcome::Consumed
-        } else {
-            SamplingOutcome::Discarded(value)
+        if !self.sample_rate.step() {
+            return SamplingOutcome::Discarded(value);
         }
+        let mut result = SamplingOutcome::Consumed;
+        if self.inner.iter.position() >= N && (self.inner.iter.position() - N) % (N / 2) == 0 {
+            self.sample_rate.div(2);
+            result = SamplingOutcome::ConsumedAndRateReduced { factor: 2 };
+        }
+        self.inner.write(value);
+        result
     }
 }
