@@ -1,0 +1,13 @@
+[package]
+authors = ["Eugene <inbox@null.page>"]
+edition = "2018"
+readme = "README.md"
+name = "infinity-sampler"
+version = "0.1.0"
+
+[lib]
+name = "infinity_sampler"
+path = "src/lib.rs"
+
+[dependencies]
+delegate = "0.12.0"
