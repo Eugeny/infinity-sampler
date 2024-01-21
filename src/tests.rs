@@ -147,6 +147,21 @@ fn e2e_mid_loop() {
 }
 
 #[test]
+fn e2e_fuzz() {
+    for i in 1..100 {
+        println!("i={}", i);
+        let mut buf = SamplingReservoir::<u32, 16>::new();
+        for j in 0..i {
+            buf.sample(j);
+        }
+        let result = buf.into_ordered_iter().collect::<Vec<_>>();
+        let mut sorted = result.iter().copied().collect::<Vec<_>>();
+        sorted.sort();
+        assert_eq!(result, sorted);
+    }
+}
+
+#[test]
 fn leak_test() {
     // Use vecs to trigger Miri leak detector
 

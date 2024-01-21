@@ -8,7 +8,7 @@ mod rate;
 #[cfg(doc)]
 pub mod math;
 
-pub use buf::{SamplingOutcome, SamplingReservoir, ReservoirOrderedIter};
+pub use buf::{SamplingOutcome, SamplingReservoir};
 pub use item::{InitializedItem, Item};
 pub use rate::SamplingRate;
 

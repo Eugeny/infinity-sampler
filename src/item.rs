@@ -16,7 +16,7 @@ pub struct Item<T> {
 /// Implements [Deref] and [DerefMut] towards `T`.
 pub struct InitializedItem<T> {
     _pad: Option<NonZeroUsize>,
-    value: T,
+    pub(crate) value: T,
 }
 
 impl<T> Item<T> {
