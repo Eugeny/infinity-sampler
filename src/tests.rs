@@ -48,7 +48,7 @@ fn insertion_sampling_sm() {
     let mut inner = buf
         .as_unordered_slice()
         .into_iter()
-        .map(|x| **x)
+        .map(|x| *x)
         .collect::<Vec<_>>();
     inner.sort();
     assert_eq!(&inner[..], &[0, 4, 8, 12, 16, 20, 24, 28]);
@@ -63,7 +63,7 @@ fn insertion_sampling_lg() {
     let mut inner = buf
         .as_unordered_slice()
         .into_iter()
-        .map(|x| **x)
+        .map(|x| *x)
         .collect::<Vec<_>>();
     inner.sort();
     assert_eq!(
@@ -78,7 +78,7 @@ fn insertion_sampling_lg() {
     let mut inner = buf
         .as_unordered_slice()
         .into_iter()
-        .map(|x| **x)
+        .map(|x| *x)
         .collect::<Vec<_>>();
     inner.sort();
     assert_eq!(
@@ -93,7 +93,7 @@ fn insertion_sampling_lg() {
     let mut inner = buf
         .as_unordered_slice()
         .into_iter()
-        .map(|x| **x)
+        .map(|x| *x)
         .collect::<Vec<_>>();
     inner.sort();
     assert_eq!(
@@ -149,7 +149,6 @@ fn e2e_mid_loop() {
 #[test]
 fn e2e_fuzz() {
     for i in 1..100 {
-        println!("i={}", i);
         let mut buf = SamplingReservoir::<u32, 16>::new();
         for j in 0..i {
             buf.sample(j);
@@ -164,18 +163,12 @@ fn e2e_fuzz() {
 #[test]
 fn leak_test() {
     // Use vecs to trigger Miri leak detector
+    for i in 1..100 {
+        let mut buf = SamplingReservoir::<Vec<u8>, 16>::new();
+        for _ in 0..i {
+            buf.sample(vec![0]);
+        }
 
-    let mut buf = SamplingReservoir::<Vec<u8>, 8>::new();
-    for _ in 0..4 {
-        buf.sample(vec![0]);
+        let _ = buf.clone().into_ordered_iter().collect::<Vec<_>>();
     }
-
-    let _ = buf.clone().into_ordered_iter().collect::<Vec<_>>();
-
-    let mut buf = SamplingReservoir::<Vec<u8>, 8>::new();
-    for _ in 0..16 {
-        buf.sample(vec![0]);
-    }
-
-    let _ = buf.clone().into_ordered_iter().collect::<Vec<_>>();
 }

@@ -3,7 +3,7 @@ authors = ["Eugene <inbox@null.page>"]
 edition = "2018"
 readme = "README.md"
 name = "infinity-sampler"
-version = "0.2.0"
+version = "0.3.0"
 license = "MIT"
 repository = "https://github.com/Eugeny/infinity-sampler"
 description = "Deterministic reservoir sampling for Rust"
@@ -14,3 +14,6 @@ path = "src/lib.rs"
 
 [features]
 microoptimizations = []
+
+[dependencies]
+heapless = "0.8"

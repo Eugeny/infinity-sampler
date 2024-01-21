@@ -1,5 +1,5 @@
-use crate::item::{InitializedItem, Item};
-use core::num::NonZeroUsize;
+use core::mem::MaybeUninit;
+use heapless::Vec;
 
 pub use crate::rate::SamplingRate;
 
@@ -16,21 +16,20 @@ pub use crate::rate::SamplingRate;
 /// The buffer size must be a power of two.
 #[derive(Clone)]
 pub struct SamplingReservoir<T, const N: usize> {
-    buf: Option<[Item<T>; N]>,
-    fill_level: usize,
+    buf: Option<Vec<T, N>>,
     sample_rate: SamplingRate,
     inner_index: usize,
     outer_index: usize,
 }
 
 impl<T, const N: usize> SamplingReservoir<T, N> {
-    const EMPTY: Item<T> = Item::empty();
     const LOG_N: u32 = N.trailing_zeros();
 
     // For panic-free `x % (N / 2) == 0` operation
     const WRAPAROUND_MASK: usize = N / 2 - 1;
 
     /// Creates a empty reservoir, allocating an uninitialized buffer.
+    /// Panics if `N` is not a power of two.
     pub const fn new() -> Self {
         assert!(N > 1);
         assert!(
@@ -38,8 +37,7 @@ impl<T, const N: usize> SamplingReservoir<T, N> {
             "Buffer capacity must be a power of two"
         );
         Self {
-            buf: Some([Self::EMPTY; N]),
-            fill_level: 0,
+            buf: Some(Vec::new()),
             sample_rate: SamplingRate::new(1),
             inner_index: 0,
             outer_index: 0,
@@ -52,28 +50,25 @@ impl<T, const N: usize> SamplingReservoir<T, N> {
     }
 
     /// Get the number of currently stored items. Can be from 0 to N-1 and never decreases.
-    pub const fn len(&self) -> usize {
-        self.fill_level
+    pub fn len(&self) -> usize {
+        unsafe { self.buf.as_ref().unwrap_unchecked() }.len()
     }
 
-    /// Consume self and return the internal components: item buffer and iterator state.
-    pub fn into_inner(mut self) -> [Item<T>; N] {
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// Consume self and return the internal item buffer.
+    pub fn into_inner(mut self) -> Vec<T, N> {
         let buf = self.buf.take();
         unsafe { buf.unwrap_unchecked() }
     }
 
     /// Get a view into the occupied part of the internal buffer.
-    fn inner_mut(&mut self) -> &mut [Item<T>; N] {
-        unsafe { self.buf.as_mut().unwrap_unchecked() }
-    }
-
-    /// Get a view into the occupied part of the internal buffer.
-    pub fn as_unordered_slice(&self) -> &[InitializedItem<T>] {
+    pub fn as_unordered_slice(&self) -> &[T] {
         // SAFETY: values up to fill_level are initialized
-        unsafe {
-            &*(&self.buf.as_ref().unwrap_unchecked()[..self.fill_level] as *const [Item<T>]
-                as *const [InitializedItem<T>])
-        }
+        let buf = unsafe { self.buf.as_ref().unwrap_unchecked() };
+        &(buf)[..self.len()]
     }
 
     /// Return an iterator over
@@ -86,7 +81,7 @@ impl<T, const N: usize> SamplingReservoir<T, N> {
                 samples_seen: self.samples_seen(),
                 samples_stored: self.samples_stored(),
             },
-            buf: &self,
+            buf: self,
         }
     }
 
@@ -99,7 +94,7 @@ impl<T, const N: usize> SamplingReservoir<T, N> {
                 samples_seen: self.samples_seen(),
                 samples_stored: self.samples_stored(),
             },
-            buf: self,
+            buf: self.buf,
         }
     }
 
@@ -137,18 +132,12 @@ impl<T, const N: usize> SamplingReservoir<T, N> {
     pub(crate) fn write_at_outer_index(&mut self, outer_index: usize, value: T) {
         let insert_index = Self::storage_index_for_outer_index(outer_index);
 
-        #[cfg(test)]
-        println!(
-            "write_at_outer_index({outer_index}, {insert_index})",
-            outer_index = outer_index
-        );
-
-        unsafe {
-            self.buf.as_mut().unwrap_unchecked()[insert_index]
-                .write(NonZeroUsize::new_unchecked(outer_index + 1), value);
+        let buf = unsafe { self.buf.as_mut().unwrap_unchecked() };
+        if insert_index == buf.len() {
+            let _ = buf.push(value);
+        } else {
+            buf[insert_index] = value;
         }
-
-        self.fill_level = self.fill_level.min(N - 1) + 1;
     }
 
     /// Observe a value and possibly store it - *O(1)*.
@@ -201,12 +190,6 @@ impl<const N: usize> Iterator for ReservoirOrderedIndexIter<N> {
 
         let n_upper_steps = self.samples_stored % (N / 2);
 
-        #[cfg(test)]
-        println!(
-            "N={N} stored={} seen={} sl={step_lower} su={step_upper} nus={n_upper_steps}",
-            self.samples_stored, self.samples_seen
-        );
-
         let outer_index = if self.pos < n_upper_steps {
             self.pos * step_upper
         } else if self.pos < N - n_upper_steps {
@@ -239,7 +222,7 @@ impl<'a, T, const N: usize> Iterator for ReservoirOrderedIter2<'a, T, N> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let idx = self.inner.next()?;
-        Some(&self.buf.as_unordered_slice()[idx].value)
+        Some(&self.buf.as_unordered_slice()[idx])
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -248,18 +231,29 @@ impl<'a, T, const N: usize> Iterator for ReservoirOrderedIter2<'a, T, N> {
 }
 
 struct OwningReservoirOrderedIter<T, const N: usize> {
-    buf: SamplingReservoir<T, N>,
+    buf: Option<Vec<T, N>>,
     inner: ReservoirOrderedIndexIter<N>,
 }
 
 impl<T, const N: usize> ExactSizeIterator for OwningReservoirOrderedIter<T, N> {}
+
+impl<T, const N: usize> OwningReservoirOrderedIter<T, N> {
+    fn get_item_ref(&mut self, idx: usize) -> &mut MaybeUninit<T> {
+        unsafe {
+            &mut *(self.buf.as_mut().unwrap_unchecked().as_mut_ptr().add(idx)
+                as *mut MaybeUninit<T>)
+        }
+    }
+}
 
 impl<T, const N: usize> Iterator for OwningReservoirOrderedIter<T, N> {
     type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {
         let idx = self.inner.next()?;
-        Some(unsafe { self.buf.inner_mut()[idx].take_unchecked() })
+        Some(unsafe {
+            core::mem::replace(self.get_item_ref(idx), MaybeUninit::uninit()).assume_init()
+        })
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -269,7 +263,9 @@ impl<T, const N: usize> Iterator for OwningReservoirOrderedIter<T, N> {
 
 impl<T, const N: usize> Drop for OwningReservoirOrderedIter<T, N> {
     fn drop(&mut self) {
-        self.buf.fill_level = 0;
+        // Consume remaining items
+        for _ in self.by_ref() {}
+        core::mem::forget(self.buf.take());
     }
 }
 
